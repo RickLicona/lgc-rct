@@ -233,11 +233,9 @@ If you use this software specifically, please also cite the software release:
   year      = {2026},
   publisher = {Zenodo},
   version   = {v0.1.0},
-  doi       = {10.5281/zenodo.XXXXXXX}
+  doi       = {10.5281/zenodo.19225509}
 }
 ```
-
-*Zenodo DOI will be assigned upon v0.1.0 release. To generate it: create a GitHub release tagged `v0.1.0` and link the repository to Zenodo (zenodo.org → GitHub integration).*
 
 ---
 
