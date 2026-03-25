@@ -1,0 +1,55 @@
+# Private internal docs — NOT for public GitHub
+docs/internal/
+
+# Reference papers and figures — copyright, not for public repo
+docs/papers/*.pdf
+docs/papers/*.docx
+PIPELINE_PAPER.png
+
+# Local dependencies (not pip-installable, not for public repo)
+gumpy/
+
+# PyCharm / IntelliJ
+.idea/
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+*.egg
+.eggs/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Data — private datasets and downloaded public datasets (never commit raw data)
+data/*.npz
+data/*.npy
+data/*.csv
+data/*.mat
+data/*.hdf5
+data/*.h5
+data/*.dat
+data/deap/
+data/team_metrics/
+# Exception: keep documentation
+!data/FORMAT.md
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Misc
+analisis.txt
+*.log
+*.tmp

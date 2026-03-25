@@ -1,0 +1,10 @@
+# Exact environment used to produce published results (NAT 2026, Berlin)
+# Python 3.9.16
+#
+# Install:
+#   pip install -r requirements-freeze.txt
+#   pip install lgc-rct
+
+numpy==1.26.4
+pyriemann==0.9
+scikit-learn==1.6.1

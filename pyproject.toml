@@ -1,0 +1,50 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "lgc-rct"
+version = "0.1.0"
+description = "Local Geometric Consistency + Riemannian Centering Transformation for cross-subject EEG transfer learning"
+readme = "README.md"
+license = { file = "LICENSE" }
+authors = [
+    { name = "Ricardo Licona Muñoz" }
+]
+keywords = [
+    "EEG",
+    "passive BCI",
+    "brain-computer interface",
+    "Riemannian geometry",
+    "transfer learning",
+    "domain adaptation",
+    "covariance matrices",
+    "workload detection",
+    "cognitive state decoding",
+    "mental workload",
+    "neurotechnology",
+    "cross-subject generalization",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering :: Medical Science Apps.",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Scientific/Engineering :: Human Machine Interfaces",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+]
+requires-python = ">=3.9"
+dependencies = [
+    "numpy>=1.26.4",
+    "pyriemann>=0.9",
+    "scikit-learn>=1.6.1",
+]
+
+[project.urls]
+Homepage = "https://github.com/ricardolicona/lgc-rct"
+Repository = "https://github.com/ricardolicona/lgc-rct"
+
+[tool.setuptools.packages.find]
+include = ["lgcrct*"]

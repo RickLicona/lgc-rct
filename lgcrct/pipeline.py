@@ -1,0 +1,276 @@
+"""
+LGCRCTPipeline — Local Geometric Consistency + Riemannian Centering Transformation.
+
+Calibration-free cross-subject EEG transfer learning pipeline.
+
+Pipeline steps
+--------------
+1. Covariance estimation: Covariances(estimator).transform(X) — epochs to SPD matrices.
+2. LGC smoothing (optional): block-aware Riemannian moving average, applied per domain.
+   Block boundaries are inferred from label transitions in y — no explicit block IDs needed.
+3. RCT alignment: TLCenter recenters each domain to the Riemannian identity.
+4. FgMDM classifier trained on source domains only (target domain_weight=0).
+
+Standard API — same signature as pyriemann transfer learning:
+    X : np.ndarray, shape (N, C, T)   EEG epochs, bandpass-filtered
+    y : np.ndarray, shape (N,)        class labels
+    domains : np.ndarray, shape (N,)  subject/domain IDs
+
+Usage
+-----
+    from lgcrct import LGCRCTPipeline
+
+    pipe = LGCRCTPipeline(half_window=10)                        # LGC-RCT
+    pipe = LGCRCTPipeline(half_window=0)                         # plain RCT
+    pipe = LGCRCTPipeline(half_window=10, cov_estimator="oas")   # custom estimator
+
+    pipe.fit(X, y, domains, target_domain="subject_01")
+    y_pred = pipe.predict(X_test, y_test, domains_test)
+"""
+from __future__ import annotations
+
+import numpy as np
+from pyriemann.classification import FgMDM
+from pyriemann.estimation import Covariances
+from pyriemann.transfer import encode_domains, TLCenter, TLClassifier
+from sklearn.pipeline import make_pipeline
+
+from .smoothing import riemann_moving_average_blockwise
+
+
+# ---------------------------------------------------------------------------
+# Public utility
+# ---------------------------------------------------------------------------
+
+def infer_blocks_from_labels(y: np.ndarray, domains: np.ndarray) -> np.ndarray:
+    """
+    Infer block IDs from label transitions within each domain.
+
+    A new block starts whenever the class label changes within a domain.
+    Each contiguous run of the same label = one block. Block IDs are
+    globally unique across domains.
+
+    This produces block IDs equivalent to explicit recording-block labels
+    for datasets with alternating-class block structure (e.g. Team Metrics).
+
+    Parameters
+    ----------
+    y : np.ndarray, shape (N,)
+        Class labels.
+    domains : np.ndarray, shape (N,)
+        Domain identifier for each epoch.
+
+    Returns
+    -------
+    block_ids : np.ndarray, shape (N,), dtype int
+        Block ID for each epoch.
+
+    Example
+    -------
+    y       = [0, 0, 0, 1, 1, 1, 0, 0, 0, 1, 1, 1]
+    domains = ['s1'] * 6 + ['s2'] * 6
+    → blocks = [1, 1, 1, 2, 2, 2, 3, 3, 3, 4, 4, 4]
+    """
+    y = np.asarray(y)
+    domains = np.asarray(domains, dtype=str)
+    block_ids = np.zeros(len(y), dtype=int)
+    block_counter = 0
+
+    for dom in np.unique(domains):
+        mask = np.where(domains == dom)[0]
+        y_dom = y[mask]
+        for i, global_idx in enumerate(mask):
+            if i == 0 or y_dom[i] != y_dom[i - 1]:
+                block_counter += 1
+            block_ids[global_idx] = block_counter
+
+    return block_ids
+
+
+# ---------------------------------------------------------------------------
+# Pipeline
+# ---------------------------------------------------------------------------
+
+class LGCRCTPipeline:
+    """
+    Calibration-free cross-subject transfer learning via LGC-RCT.
+
+    Parameters
+    ----------
+    half_window : int
+        LGC neighborhood radius (in epoch-index space).
+        half_window=0  → plain RCT (no smoothing).
+        half_window=10 → best-performing configuration (Team Metrics, 34 pilots).
+    cov_estimator : str
+        Covariance estimator passed to pyriemann.estimation.Covariances.
+        Default 'lwf' (Ledoit-Wolf) — best for this project.
+        Other options: 'scm', 'oas', 'mcd', 'corr', etc.
+        See pyriemann.utils.covariance.covariances for the full list.
+    metric : dict
+        FgMDM metric configuration. Defaults match the published results.
+    """
+
+    def __init__(
+        self,
+        half_window: int = 10,
+        cov_estimator: str = "lwf",
+        metric: dict | None = None,
+    ):
+        self.half_window = half_window
+        self.cov_estimator = cov_estimator
+        self.metric = metric or {
+            "mean": "logeuclid",
+            "distance": "riemann",
+            "map": "logeuclid",
+        }
+        self._target_domain: str | None = None
+        self._pipe = None
+
+    # ------------------------------------------------------------------
+    # Public API
+    # ------------------------------------------------------------------
+
+    def fit(
+        self,
+        X: np.ndarray,
+        y: np.ndarray,
+        domains: np.ndarray,
+        target_domain: str,
+    ) -> "LGCRCTPipeline":
+        """
+        Fit the pipeline on source + target EEG epochs.
+
+        Target labels are never used by the classifier (domain_weight=0).
+        They are used only to infer block boundaries for LGC smoothing.
+
+        Parameters
+        ----------
+        X : np.ndarray, shape (N, C, T)
+            EEG epochs for all domains. C channels, T time samples.
+        y : np.ndarray, shape (N,)
+            Class labels. Used to infer LGC block boundaries.
+            Target labels are excluded from classifier training.
+        domains : np.ndarray, shape (N,)
+            Domain identifier for each epoch (e.g. 'subject_01').
+        target_domain : str
+            Domain ID of the held-out subject (e.g. 'subject_01').
+        """
+        domains = np.asarray(domains, dtype=str)
+        unique_domains = np.unique(domains)
+        self._target_domain = target_domain
+
+        # Step 1: epochs (N, C, T) → SPD covariance matrices (N, C, C)
+        X_cov = self._estimate_cov(X)
+
+        # Step 2: LGC smoothing per domain — block boundaries from y
+        if self.half_window > 0:
+            blocks = infer_blocks_from_labels(y, domains)
+            X_cov = self._apply_lgc(X_cov, domains, blocks)
+
+        # Step 3: RCT + FgMDM — target weight=0 (calibration-free)
+        dom_weights = {d: 1.0 for d in unique_domains}
+        dom_weights[target_domain] = 0.0
+
+        X_enc, y_enc = encode_domains(X_cov, y, domains)
+
+        self._pipe = make_pipeline(
+            TLCenter(target_domain=target_domain),
+            TLClassifier(
+                target_domain=target_domain,
+                estimator=FgMDM(metric=self.metric, n_jobs=1),
+                domain_weight=dom_weights,
+            ),
+        )
+        self._pipe.fit(X_enc, y_enc)
+        return self
+
+    def predict(
+        self,
+        X: np.ndarray,
+        y: np.ndarray,
+        domains: np.ndarray,
+    ) -> np.ndarray:
+        """
+        Predict class labels for EEG epochs.
+
+        Parameters
+        ----------
+        X : np.ndarray, shape (N, C, T)
+            EEG epochs.
+        y : np.ndarray, shape (N,)
+            Class labels — used only to infer LGC block boundaries.
+            Not used by the classifier.
+        domains : np.ndarray, shape (N,)
+
+        Returns
+        -------
+        y_pred : np.ndarray, shape (N,)
+        """
+        self._check_fitted()
+        X_cov = self._estimate_cov(X)
+        if self.half_window > 0:
+            blocks = infer_blocks_from_labels(y, domains)
+            X_cov = self._apply_lgc(X_cov, domains, blocks)
+        X_enc, _ = encode_domains(X_cov, y, domains)
+        return self._pipe.predict(X_enc).astype(int)
+
+    def transform(
+        self,
+        X: np.ndarray,
+        y: np.ndarray,
+        domains: np.ndarray,
+    ) -> np.ndarray:
+        """
+        Estimate covariances, apply LGC smoothing + RCT alignment.
+
+        Returns aligned SPD matrices — useful for inspection or custom classifiers.
+
+        Parameters
+        ----------
+        X : np.ndarray, shape (N, C, T)
+        y : np.ndarray, shape (N,)
+            Used only for LGC block boundary inference.
+        domains : np.ndarray, shape (N,)
+
+        Returns
+        -------
+        X_aligned : np.ndarray, shape (N, C, C)
+        """
+        self._check_fitted()
+        X_cov = self._estimate_cov(X)
+        if self.half_window > 0:
+            blocks = infer_blocks_from_labels(y, domains)
+            X_cov = self._apply_lgc(X_cov, domains, blocks)
+        X_enc, _ = encode_domains(X_cov, y, domains)
+        return self._pipe[0].transform(X_enc)
+
+    @property
+    def use_lgc(self) -> bool:
+        return self.half_window > 0
+
+    # ------------------------------------------------------------------
+    # Internal helpers
+    # ------------------------------------------------------------------
+
+    def _estimate_cov(self, X: np.ndarray) -> np.ndarray:
+        """Epochs (N, C, T) → SPD covariance matrices (N, C, C)."""
+        return Covariances(estimator=self.cov_estimator).transform(X)
+
+    def _apply_lgc(
+        self,
+        X_cov: np.ndarray,
+        domains: np.ndarray,
+        blocks: np.ndarray,
+    ) -> np.ndarray:
+        """Apply LGC smoothing per domain."""
+        X_out = np.empty_like(X_cov)
+        for dom in np.unique(domains):
+            mask = domains == dom
+            X_out[mask] = riemann_moving_average_blockwise(
+                X_cov[mask], blocks[mask], self.half_window
+            )
+        return X_out
+
+    def _check_fitted(self):
+        if self._pipe is None:
+            raise RuntimeError("Call fit() before predict() or transform().")
