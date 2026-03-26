@@ -127,7 +127,7 @@ def extract_overlapping_windows(
 def build_subject_features(df_subj, channels, band, window_sec, step_sec):
     """
     Windowing + bandpass for one subject. Returns epochs (N, C, T).
-    Covariance estimation and LGC smoothing are handled by LGCRCTPipeline.
+    Covariance estimation and LGC are handled by LGCRCTPipeline.
 
     Returns
     -------
@@ -196,7 +196,7 @@ def main():
     )
     parser.add_argument(
         "--use-lgc", action="store_true", default=False,
-        help="Apply LGC smoothing (LGC-RCT). Omit for plain RCT.",
+        help="Apply LGC (local geometric consistency). Omit for plain RCT.",
     )
     parser.add_argument(
         "--lgc-half-window", type=int, default=10,

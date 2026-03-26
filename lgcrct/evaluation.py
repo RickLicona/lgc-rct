@@ -52,7 +52,7 @@ def run_loso(
         Subject/domain identifier for each epoch.
     half_window : int
         LGC neighborhood radius.
-        half_window=0  → plain RCT (no smoothing).
+        half_window=0  → plain RCT (no LGC).
         half_window=10 → best configuration (Team Metrics, 34 pilots).
     cov_estimator : str
         Covariance estimator for pyriemann.estimation.Covariances.

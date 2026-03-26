@@ -46,10 +46,10 @@ neighboring covariance matrices prior to RCT improves cross-subject workload cla
         ▼
  ╔═════════════════════════════════════════════════════════════╗
  ║  LGC — Local Geometric Consistency          [proposed]      ║
- ║  Riemannian moving average over K temporal neighbors        ║
- ║  Block-aware: smoothing does not cross class boundaries     ║
+ ║  Local Riemannian mean over K temporal neighbors             ║
+ ║  Block-aware: LGC does not cross class boundaries           ║
  ╚═════════════════════════════════════════════════════════════╝
-        │  (N_epochs, C, C)  smoothed SPD matrices
+        │  (N_epochs, C, C)  LGC-processed SPD matrices
         ▼
  ┌─────────────────────────────────────────────────────────────┐
  │  RCT — Riemannian Centering Transformation                  │
@@ -113,8 +113,8 @@ domains : np.ndarray (N,)        subject IDs (str or int)
 ```
 
 > **Recommendation**: apply sliding-window segmentation before calling LGC-RCT.
-> LGC smoothing relies on temporal neighbors within each class segment — more windows
-> per segment means richer temporal structure and stronger smoothing effect.
+> LGC relies on temporal neighbors within each class segment — more windows
+> per segment means richer temporal structure and stronger geometric consistency.
 > A 4-second window with 50% overlap (2-second step) at 128 Hz is a validated configuration.
 
 ---
@@ -154,7 +154,7 @@ As reported in NAT26 Berlin proceedings.
 ```
 lgc-rct/
 ├── lgcrct/                                        # Installable Python package
-│   ├── smoothing.py                               # LGC: block-aware Riemannian moving average
+│   ├── lgc.py                                     # LGC: block-aware local Riemannian mean on P(n)
 │   ├── pipeline.py                                # LGCRCTPipeline: fit / predict / transform
 │   └── evaluation.py                              # run_loso: LOSO cross-subject evaluation
 ├── demos/
@@ -240,7 +240,7 @@ If you use this software specifically, please also cite the software release:
   title     = {lgc-rct: Local Geometric Consistency + Riemannian Centering Transformation},
   year      = {2026},
   publisher = {Zenodo},
-  version   = {v0.1.1},
+  version   = {v0.2.0},
   doi       = {10.5281/zenodo.19225508}
 }
 ```

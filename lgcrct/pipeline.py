@@ -6,7 +6,7 @@ Calibration-free cross-subject EEG transfer learning pipeline.
 Pipeline steps
 --------------
 1. Covariance estimation: Covariances(estimator).transform(X) — epochs to SPD matrices.
-2. LGC smoothing (optional): block-aware Riemannian moving average, applied per domain.
+2. LGC (optional): block-aware local Riemannian mean, applied per domain.
    Block boundaries are inferred from label transitions in y — no explicit block IDs needed.
 3. RCT alignment: TLCenter recenters each domain to the Riemannian identity.
 4. FgMDM classifier trained on source domains only (target domain_weight=0).
@@ -35,7 +35,7 @@ from pyriemann.estimation import Covariances
 from pyriemann.transfer import encode_domains, TLCenter, TLClassifier
 from sklearn.pipeline import make_pipeline
 
-from .smoothing import riemann_moving_average_blockwise
+from .lgc import local_riemannian_mean_blockwise
 
 
 # ---------------------------------------------------------------------------
@@ -99,7 +99,7 @@ class LGCRCTPipeline:
     ----------
     half_window : int
         LGC neighborhood radius (in epoch-index space).
-        half_window=0  → plain RCT (no smoothing).
+        half_window=0  → plain RCT (no LGC).
         half_window=10 → best-performing configuration (Team Metrics, 34 pilots).
     cov_estimator : str
         Covariance estimator passed to pyriemann.estimation.Covariances.
@@ -141,7 +141,7 @@ class LGCRCTPipeline:
         Fit the pipeline on source + target EEG epochs.
 
         Target labels are never used by the classifier (domain_weight=0).
-        They are used only to infer block boundaries for LGC smoothing.
+        They are used only to infer block boundaries for LGC.
 
         Parameters
         ----------
@@ -162,7 +162,7 @@ class LGCRCTPipeline:
         # Step 1: epochs (N, C, T) → SPD covariance matrices (N, C, C)
         X_cov = self._estimate_cov(X)
 
-        # Step 2: LGC smoothing per domain — block boundaries from y
+        # Step 2: LGC (local geometric consistency) per domain — block boundaries from y
         if self.half_window > 0:
             blocks = infer_blocks_from_labels(y, domains)
             X_cov = self._apply_lgc(X_cov, domains, blocks)
@@ -221,7 +221,7 @@ class LGCRCTPipeline:
         domains: np.ndarray,
     ) -> np.ndarray:
         """
-        Estimate covariances, apply LGC smoothing + RCT alignment.
+        Estimate covariances, apply LGC + RCT alignment.
 
         Returns aligned SPD matrices — useful for inspection or custom classifiers.
 
@@ -262,11 +262,11 @@ class LGCRCTPipeline:
         domains: np.ndarray,
         blocks: np.ndarray,
     ) -> np.ndarray:
-        """Apply LGC smoothing per domain."""
+        """Apply LGC (local geometric consistency) per domain."""
         X_out = np.empty_like(X_cov)
         for dom in np.unique(domains):
             mask = domains == dom
-            X_out[mask] = riemann_moving_average_blockwise(
+            X_out[mask] = local_riemannian_mean_blockwise(
                 X_cov[mask], blocks[mask], self.half_window
             )
         return X_out
