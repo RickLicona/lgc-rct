@@ -4,12 +4,16 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "lgc-rct"
-version = "0.1.0"
+version = "0.1.1"
 description = "Local Geometric Consistency + Riemannian Centering Transformation for cross-subject EEG transfer learning"
 readme = "README.md"
 license = { file = "LICENSE" }
 authors = [
-    { name = "Ricardo Licona Muñoz" }
+    { name = "Ricardo Licona Muñoz" },
+    { name = "Pierre Guetschel" },
+    { name = "Juliette Bruin" },
+    { name = "Efecan Yilmaz" },
+    { name = "Anne-Marie Brouwer" },
 ]
 keywords = [
     "EEG",

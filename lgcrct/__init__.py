@@ -11,7 +11,7 @@ from .pipeline import LGCRCTPipeline, infer_blocks_from_labels
 from .smoothing import riemann_moving_average_blockwise
 from .evaluation import run_loso
 
-__version__ = "0.1.0"
+__version__ = "0.1.1"
 __all__ = [
     "LGCRCTPipeline",
     "run_loso",

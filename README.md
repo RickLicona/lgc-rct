@@ -215,8 +215,12 @@ If you use this method, please cite the paper:
 ```bibtex
 @inproceedings{licona2026lgcrct,
   title     = {Local Geometric Consistency for Cross-Subject {EEG} Transfer Learning},
-  author    = {Licona Mu{\~n}oz, Ricardo and others},
-  booktitle = {Proceedings of NAT 2026},
+  author    = {Licona Mu{\~n}oz, Ricardo and
+               Guetschel, Pierre and
+               Bruin, Juliette and
+               Yilmaz, Efecan and
+               Brouwer, Anne-Marie},
+  booktitle = {Proceedings of the Fifth Neuroadaptive Technology Conference (NAT'26)},
   year      = {2026},
   note      = {Berlin, Germany}
 }
@@ -228,11 +232,15 @@ If you use this software specifically, please also cite the software release:
 
 ```bibtex
 @software{licona2026lgcrct_software,
-  author    = {Licona Mu{\~n}oz, Ricardo and others},
+  author    = {Licona Mu{\~n}oz, Ricardo and
+               Guetschel, Pierre and
+               Bruin, Juliette and
+               Yilmaz, Efecan and
+               Brouwer, Anne-Marie},
   title     = {lgc-rct: Local Geometric Consistency + Riemannian Centering Transformation},
   year      = {2026},
   publisher = {Zenodo},
-  version   = {v0.1.0},
+  version   = {v0.1.1},
   doi       = {10.5281/zenodo.19225509}
 }
 ```
