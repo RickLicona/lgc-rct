@@ -241,7 +241,7 @@ If you use this software specifically, please also cite the software release:
   year      = {2026},
   publisher = {Zenodo},
   version   = {v0.1.1},
-  doi       = {10.5281/zenodo.19225509}
+  doi       = {10.5281/zenodo.19225508}
 }
 ```
 
