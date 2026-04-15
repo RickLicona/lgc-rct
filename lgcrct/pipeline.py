@@ -142,16 +142,22 @@ class LGCRCTPipeline:
         """
         Fit the pipeline on source + target EEG windows.
 
-        Target labels are never used by the classifier (domain_weight=0).
-        They are used only to infer block boundaries for LGC.
+        The proposed pipeline requires no labeled data from the target subject.
+        Domain alignment is performed via RCT (Zanini et al., 2018): each domain
+        (source and target) is recentered to the identity matrix using its own
+        Riemannian mean. For the target domain, this mean is computed from all
+        available unlabeled covariance matrices. This constitutes a transductive
+        transfer learning setting (Pan & Yang, 2010, Def. 3). Crucially, the
+        pipeline is fully unsupervised with respect to the target domain: no
+        target labels are used at any stage.
 
         Parameters
         ----------
         X : np.ndarray, shape (N, C, T)
             EEG windows for all domains. C channels, T time samples.
         y : np.ndarray, shape (N,)
-            Class labels. Used to infer LGC block boundaries.
-            Target labels are excluded from classifier training.
+            Class labels. Used only to infer LGC segment boundaries.
+            Target labels are never used for adaptation or classification.
         domains : np.ndarray, shape (N,)
             Domain identifier for each window (e.g. 'subject_01').
         target_domain : str

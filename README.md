@@ -74,6 +74,14 @@ neighboring covariance matrices prior to RCT improves cross-subject workload cla
   Class labels — 0 or 1
 ```
 
+### Evaluation protocol
+
+The target domain participates in alignment — RCT computes its Riemannian mean from
+all available unlabeled covariance matrices — but no target labels are used at any stage.
+This constitutes an **unsupervised transductive** transfer learning setting (Pan & Yang, 2010).
+In active BCI, RCT estimates the reference matrix from resting-state periods; in passive BCI —
+where no rest states exist — we use all available unlabeled target windows.
+
 ### Key properties
 - **Unsupervised transductive**: no target labels required at any stage — domain alignment uses only unlabeled target data
 - **Standard API**: follows the `(X, y, domains)` convention of pyriemann transfer learning
