@@ -281,3 +281,101 @@ class LGCRCTPipeline:
     def _check_fitted(self):
         if self._pipe is None:
             raise RuntimeError("Call fit() before predict() or transform().")
+
+
+# ---------------------------------------------------------------------------
+# MDM baseline pipeline
+# ---------------------------------------------------------------------------
+
+class MDMPipeline:
+    """
+    Cross-subject MDM baseline — no domain adaptation.
+
+    Covariance estimation + FgMDM classifier trained on source domains only.
+    No RCT alignment, no LGC smoothing. Use as a lower-bound baseline to
+    measure the contribution of domain adaptation in LGCRCTPipeline.
+
+    Same API as LGCRCTPipeline: fit(X, y, domains, target_domain) / predict().
+
+    Parameters
+    ----------
+    cov_estimator : str
+        Covariance estimator for pyriemann.estimation.Covariances.
+        Default 'lwf' (Ledoit-Wolf).
+    metric : dict
+        FgMDM metric configuration. Defaults match LGCRCTPipeline.
+
+    Examples
+    --------
+    pipe_mdm = MDMPipeline()                          # MDM baseline
+    pipe_rct = LGCRCTPipeline(half_window=0)          # RCT baseline
+    pipe_lgc = LGCRCTPipeline(half_window=10)         # LGC-RCT (proposed)
+    """
+
+    def __init__(
+        self,
+        cov_estimator: str = "lwf",
+        metric: dict | None = None,
+    ):
+        self.cov_estimator = cov_estimator
+        self.metric = metric or {
+            "mean": "logeuclid",
+            "distance": "riemann",
+            "map": "logeuclid",
+        }
+        self._clf = None
+
+    def fit(
+        self,
+        X: np.ndarray,
+        y: np.ndarray,
+        domains: np.ndarray,
+        target_domain: str,
+    ) -> "MDMPipeline":
+        """
+        Fit FgMDM on source domains only. Target domain is excluded entirely.
+
+        Parameters
+        ----------
+        X : np.ndarray, shape (N, C, T)
+            EEG windows for all domains.
+        y : np.ndarray, shape (N,)
+            Class labels.
+        domains : np.ndarray, shape (N,)
+            Domain identifier for each window.
+        target_domain : str
+            Domain ID of the held-out subject — excluded from training.
+        """
+        domains = np.asarray(domains, dtype=str)
+        src_mask = domains != target_domain
+
+        X_cov = Covariances(estimator=self.cov_estimator).transform(X)
+        self._clf = FgMDM(metric=self.metric, n_jobs=1)
+        self._clf.fit(X_cov[src_mask], y[src_mask].astype(int))
+        return self
+
+    def predict(
+        self,
+        X: np.ndarray,
+        y: np.ndarray,
+        domains: np.ndarray,
+    ) -> np.ndarray:
+        """
+        Predict class labels for EEG windows.
+
+        Parameters
+        ----------
+        X : np.ndarray, shape (N, C, T)
+        y : np.ndarray, shape (N,)
+            Not used — included for API consistency with LGCRCTPipeline.
+        domains : np.ndarray, shape (N,)
+            Not used — included for API consistency with LGCRCTPipeline.
+
+        Returns
+        -------
+        y_pred : np.ndarray, shape (N,)
+        """
+        if self._clf is None:
+            raise RuntimeError("Call fit() before predict().")
+        X_cov = Covariances(estimator=self.cov_estimator).transform(X)
+        return self._clf.predict(X_cov).astype(int)

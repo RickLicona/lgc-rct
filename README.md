@@ -74,6 +74,18 @@ neighboring covariance matrices prior to RCT improves cross-subject workload cla
   Class labels — 0 or 1
 ```
 
+### Methods provided
+
+The framework provides three methods with a unified API:
+
+| Method | Class | K | Domain adaptation | Description |
+|---|---|:---:|:---:|---|
+| **MDM** | `MDMPipeline()` | — | ✗ | Baseline — no alignment, FgMDM on source only |
+| **RCT** | `LGCRCTPipeline(half_window=0)` | 0 | ✓ | Standard RCT (Zanini 2018) — no LGC |
+| **LGC-RCT** | `LGCRCTPipeline(half_window=10)` | 10 | ✓ | Proposed method — LGC + RCT |
+
+When `half_window=0`, `LGCRCTPipeline` reduces to standard RCT with no local geometric consistency applied. Increasing K enforces stronger temporal consistency prior to domain alignment.
+
 ### Evaluation protocol
 
 The target domain participates in alignment — RCT computes its Riemannian mean from
@@ -106,19 +118,22 @@ pip install lgc-rct
 ## Quick Start
 
 ```python
-from lgcrct import LGCRCTPipeline, run_loso
+from lgcrct import LGCRCTPipeline, MDMPipeline, run_loso
 
 # X : np.ndarray, shape (N, C, T) — bandpass-filtered EEG windows
 # y : np.ndarray, shape (N,)      — class labels {0, 1}
 # domains : np.ndarray, shape (N,) — subject IDs
 
+# MDM baseline — no domain adaptation
+pipe_mdm = MDMPipeline(cov_estimator="lwf")
+
+# RCT baseline — domain alignment, no LGC
+pipe_rct = LGCRCTPipeline(half_window=0)
+
 # LGC-RCT (proposed method — Riemannian mean, K=10)
 pipe = LGCRCTPipeline(half_window=10, cov_estimator="lwf")
 pipe.fit(X, y, domains, target_domain="subject_01")
 y_pred = pipe.predict(X_test, y_test, domains_test)
-
-# Plain RCT baseline (no LGC)
-pipe_rct = LGCRCTPipeline(half_window=0)
 
 # LGC-Euclidean ablation (arithmetic mean instead of Riemannian)
 pipe_euclid = LGCRCTPipeline(half_window=10, lgc_mean="euclid")
