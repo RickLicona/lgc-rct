@@ -10,7 +10,7 @@
 # Licona Muñoz et al. — NAT 2026, Berlin.
 #
 # **Protocol**: Leave-One-Subject-Out (LOSO), 32 subjects, binary classification.
-# Each subject: 40 trials × ~30 windows/trial (4s, 50% overlap) = ~1200 epochs.
+# Each subject: 40 trials × ~30 windows/trial (4s, 50% overlap) = ~1200 windows.
 
 # %% [markdown]
 # ## 1. Imports & Setup
@@ -154,7 +154,7 @@ def build_deap_dataset(deap_path: str, label_target: str,
 
     Returns
     -------
-    X : np.ndarray, shape (N, C, T)    — bandpass-filtered EEG epochs
+    X : np.ndarray, shape (N, C, T)    — bandpass-filtered EEG windows
     y : np.ndarray, shape (N,)         — binary class labels
     domains : np.ndarray, shape (N,)   — subject IDs ('subject_01', ...)
     """
@@ -197,7 +197,7 @@ def build_deap_dataset(deap_path: str, label_target: str,
     y       = np.concatenate(y_list)
     domains = np.concatenate(dom_list)
 
-    print(f"\nTotal epochs : {X.shape[0]}")
+    print(f"\nTotal windows : {X.shape[0]}")
     print(f"Shape        : {X.shape}  (N, C, T)")
     print(f"Class counts : {np.bincount(y.astype(int))}")
 

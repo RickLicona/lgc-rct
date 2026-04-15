@@ -51,6 +51,11 @@ Thumbs.db
 
 # Misc
 analisis.txt
+analisis2.txt
+LGC-RCT-inductive main.py
 CLAUDE.md
 *.log
 *.tmp
+
+# Ablation results in progress — commit separately when experiments complete
+results/deap_ablation/

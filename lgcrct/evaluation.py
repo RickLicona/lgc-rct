@@ -8,11 +8,11 @@ Usage
 -----
     from lgcrct import run_loso
 
-    # X : np.ndarray, shape (N, C, T) — bandpass-filtered EEG epochs
+    # X : np.ndarray, shape (N, C, T) — bandpass-filtered EEG windows
     # y : np.ndarray, shape (N,)      — class labels
     # domains : np.ndarray, shape (N,) — subject IDs
 
-    results = run_loso(X, y, domains, half_window=10, cov_estimator="lwf")
+    results = run_loso(X, y, domains, half_window=10, cov_estimator="lwf", lgc_mean="riemann")
     print(results[["target", "acc", "f1_macro"]].to_string(index=False))
 """
 from __future__ import annotations
@@ -32,6 +32,7 @@ def run_loso(
     domains: np.ndarray,
     half_window: int = 10,
     cov_estimator: str = "lwf",
+    lgc_mean: str = "riemann",
 ) -> pd.DataFrame:
     """
     Leave-One-Subject-Out cross-subject evaluation.
@@ -44,12 +45,12 @@ def run_loso(
     Parameters
     ----------
     X : np.ndarray, shape (N, C, T)
-        EEG epochs — bandpass-filtered, windowed. The user is responsible
-        for preprocessing (filtering, windowing) before calling this function.
+        EEG windows — bandpass-filtered and sliding-window segmented.
+        The user is responsible for preprocessing before calling this function.
     y : np.ndarray, shape (N,)
         Class labels.
     domains : np.ndarray, shape (N,)
-        Subject/domain identifier for each epoch.
+        Subject/domain identifier for each window.
     half_window : int
         LGC neighborhood radius.
         half_window=0  → plain RCT (no LGC).
@@ -57,6 +58,10 @@ def run_loso(
     cov_estimator : str
         Covariance estimator for pyriemann.estimation.Covariances.
         Default 'lwf' (Ledoit-Wolf) — validated on Team Metrics dataset.
+    lgc_mean : str
+        Averaging method for LGC smoothing.
+        "riemann" → Riemannian (Fréchet) mean — proposed method.
+        "euclid"  → Euclidean (arithmetic) mean — ablation baseline.
 
     Returns
     -------
@@ -68,7 +73,10 @@ def run_loso(
     y = np.asarray(y)
     unique_domains = np.unique(domains)
 
-    method = f"LGC-RCT K={half_window}" if half_window > 0 else "RCT"
+    if half_window > 0:
+        method = f"LGC-RCT K={half_window} ({lgc_mean})"
+    else:
+        method = "RCT"
     print(f"\nLOSO | {method} | cov_estimator={cov_estimator} | "
           f"subjects={len(unique_domains)}")
 
@@ -89,6 +97,7 @@ def run_loso(
         pipe = LGCRCTPipeline(
             half_window=half_window,
             cov_estimator=cov_estimator,
+            lgc_mean=lgc_mean,
         )
 
         t0 = time.perf_counter()
@@ -120,6 +129,7 @@ def run_loso(
             "estimator":     "FgMDM",
             "cov_estimator": cov_estimator,
             "half_window":   half_window,
+            "lgc_mean":      lgc_mean,
         })
 
     df = pd.DataFrame(rows)

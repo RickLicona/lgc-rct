@@ -1,7 +1,7 @@
 """
 lgcrct — Local Geometric Consistency + Riemannian Centering Transformation.
 
-Calibration-free cross-subject EEG transfer learning.
+Unsupervised transductive cross-subject EEG transfer learning.
 
     from lgcrct import LGCRCTPipeline
     from lgcrct.lgc import local_riemannian_mean_blockwise

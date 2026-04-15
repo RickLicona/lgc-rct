@@ -1,16 +1,16 @@
 # LGC-RCT — Local Geometric Consistency + Riemannian Centering Transformation
 
-Calibration-free cross-subject EEG transfer learning for passive Brain-Computer Interfaces.
+Unsupervised transductive cross-subject EEG transfer learning for passive Brain-Computer Interfaces.
 
-> **Licona Muñoz, R. et al.** — *"Local Geometric Consistency for Cross-Subject EEG Transfer Learning"*
+> **Licona Muñoz, R., Guetschel, P., Bruin, J., Yilmaz, E. & Brouwer, A.-M.** — *"Local Geometric Consistency for Cross-Subject EEG Transfer Learning"*
 > NAT 2026, Berlin. *(citation forthcoming)*
 
 ---
 
 ## What is LGC-RCT?
 
-LGC-RCT is a calibration-free method for cross-subject EEG transfer learning designed
-for passive BCI applications. It combines two components:
+LGC-RCT is an unsupervised transductive method for cross-subject EEG transfer learning
+designed for passive BCI applications. It combines two components:
 
 - **RCT (Riemannian Centering Transformation)** [[1]](#references): a transfer learning method
   that re-centers covariance representations across domains to the identity matrix.
@@ -28,46 +28,54 @@ neighboring covariance matrices prior to RCT improves cross-subject workload cla
 
 ### Pipeline
 
+**Notation** — used consistently throughout the diagram:
+- `S` : number of subjects (domains)
+- `C` : number of EEG channels
+- `T` : number of time samples per window
+- `N` : total number of windows across all subjects  (`N = S × trials × windows_per_trial`)
+- `[f_lo, f_hi]` : frequency band (Hz) — dataset-specific (e.g. 8–12 Hz, 15–36 Hz)
+
 ```
- Raw EEG (N channels)
-        │
+ Continuous EEG — S subjects · C channels · [f_lo, f_hi] Hz band
+        │  shape per subject: (C, T_total)
         ▼
  ┌─────────────────────────────────────────────────────────────┐
- │  Band-pass filter + Sliding windows                         │
- │  (dataset-specific band · 4 s windows · 50% overlap)        │
+ │  Band-pass filter  [f_lo, f_hi] Hz (Butterworth order 4)   │
+ │  + Sliding windows (4 s · 50% overlap · 128 Hz)             │
  └─────────────────────────────────────────────────────────────┘
-        │  (N_epochs, C, T)
+        │  (N, C, T)   — N windows across all subjects
         ▼
  ┌─────────────────────────────────────────────────────────────┐
  │  Covariance matrix estimation                               │
  │  Ledoit-Wolf · pyriemann Covariances('lwf')                 │
  └─────────────────────────────────────────────────────────────┘
-        │  (N_epochs, C, C)  SPD matrices
+        │  (N, C, C)   — N symmetric positive-definite matrices
         ▼
  ╔═════════════════════════════════════════════════════════════╗
  ║  LGC — Local Geometric Consistency          [proposed]      ║
- ║  Local Riemannian mean over K temporal neighbors             ║
- ║  Block-aware: LGC does not cross class boundaries           ║
+ ║  Replaces each C_i with the Riemannian mean of its          ║
+ ║  K nearest temporal neighbors within the same class segment ║
  ╚═════════════════════════════════════════════════════════════╝
-        │  (N_epochs, C, C)  LGC-processed SPD matrices
+        │  (N, C, C)   — LGC-processed SPD matrices
         ▼
  ┌─────────────────────────────────────────────────────────────┐
  │  RCT — Riemannian Centering Transformation                  │
- │  TLCenter: re-centers each domain to the identity matrix    │
+ │  Re-centers each domain to the identity matrix              │
  └─────────────────────────────────────────────────────────────┘
-        │
+        │  (N, C, C)   — domain-aligned SPD matrices
         ▼
  ┌─────────────────────────────────────────────────────────────┐
- │  MDM classifier (with geodesic filtering)                   │
- │  Trained on source domains only · target labels never used  │
+ │  FgMDM classifier (MDM with geodesic filtering)             │
+ │  Trained on source domains only                             │
+ │  Target labels never used → unsupervised transductive       │
  └─────────────────────────────────────────────────────────────┘
-        │
+        │  (N,)
         ▼
-  Decision rule — Class 0 or Class 1
+  Class labels — 0 or 1
 ```
 
 ### Key properties
-- **Calibration-free**: no labeled data from the target subject required
+- **Unsupervised transductive**: no target labels required at any stage — domain alignment uses only unlabeled target data
 - **Standard API**: follows the `(X, y, domains)` convention of pyriemann transfer learning
 - **Paradigm-agnostic**: validated on mental workload and affective state classification (preliminary)
 
@@ -92,22 +100,29 @@ pip install lgc-rct
 ```python
 from lgcrct import LGCRCTPipeline, run_loso
 
-# X : np.ndarray, shape (N, C, T) — bandpass-filtered EEG epochs
+# X : np.ndarray, shape (N, C, T) — bandpass-filtered EEG windows
 # y : np.ndarray, shape (N,)      — class labels {0, 1}
 # domains : np.ndarray, shape (N,) — subject IDs
 
-# LGC-RCT (proposed method)
+# LGC-RCT (proposed method — Riemannian mean, K=10)
 pipe = LGCRCTPipeline(half_window=10, cov_estimator="lwf")
 pipe.fit(X, y, domains, target_domain="subject_01")
 y_pred = pipe.predict(X_test, y_test, domains_test)
 
+# Plain RCT baseline (no LGC)
+pipe_rct = LGCRCTPipeline(half_window=0)
+
+# LGC-Euclidean ablation (arithmetic mean instead of Riemannian)
+pipe_euclid = LGCRCTPipeline(half_window=10, lgc_mean="euclid")
+
 # Full LOSO evaluation
 results = run_loso(X, y, domains, half_window=10, cov_estimator="lwf")
+results_euclid = run_loso(X, y, domains, half_window=10, lgc_mean="euclid")
 ```
 
 ### Input format
 ```
-X       : np.ndarray (N, C, T)   bandpass-filtered EEG epochs
+X       : np.ndarray (N, C, T)   bandpass-filtered EEG windows
 y       : np.ndarray (N,)        class labels {0, 1}
 domains : np.ndarray (N,)        subject IDs (str or int)
 ```
@@ -124,7 +139,7 @@ domains : np.ndarray (N,)        subject IDs (str or int)
 ### Mental Workload — Team Metrics dataset (private, TNO)
 34 pilots, UAV supervision task, binary workload classification, LOSO, 128 Hz.
 
-| Method           | Alpha ACC        | Theta ACC        | Calib-free? |
+| Method           | Alpha ACC        | Theta ACC        | No target labels? |
 |------------------|:----------------:|:----------------:|:-----------:|
 | MDM              | 50.56 ± 1.63     | 51.34 ± 2.15     |      —      |
 | RCT              | 57.74 ± 2.56     | 57.94 ± 3.46     |     YES     |
@@ -136,7 +151,7 @@ As reported in NAT26 Berlin proceedings.
 ### Affective State Classification — DEAP dataset *(preliminary)*
 32 subjects, emotion recognition, binary classification, LOSO, 128 Hz, 15–36 Hz.
 
-| Task    | Method        |      ACC      | Calib-free? | Status      |
+| Task    | Method        |      ACC      | No target labels? | Status      |
 |---------|---------------|:------------:|:-----------:|-------------|
 | Valence | LGC-RCT K=10  | 79.52 ± 5.87 |     YES     | preliminary |
 | Arousal | LGC-RCT K=10  | 75.51 ± 5.68 |     YES     | preliminary |
@@ -160,7 +175,8 @@ lgc-rct/
 ├── demos/
 │   └── 02_demo_deap.py                            # Demo on DEAP public dataset
 ├── experiments/                                   # Requires Team Metrics dataset (private, TNO)
-│   └── lgc_rct_loso.py                            # Full LOSO experiment script
+│   ├── lgc_rct_loso.py                            # Full LOSO experiment script
+│   └── lgc_ablation_deap.py                       # LGC-Riemannian vs LGC-Euclidean ablation (DEAP)
 ├── data/
 │   └── FORMAT.md                                  # Dataset format and download instructions
 └── results/
