@@ -39,6 +39,7 @@ BAND = (15, 36)   # Hz (lo, hi)
 # LGC-RCT configuration
 HALF_WINDOW    = 10
 COV_ESTIMATOR  = "lwf"
+LGC_MEAN       = "riemann"   # "riemann" (proposed) or "euclid" (ablation baseline)
 
 # Windowing — 4s windows, 50% overlap, consistent with Team Metrics
 WINDOW_SEC     = 4
@@ -221,13 +222,15 @@ X, y, domains = build_deap_dataset(
 # ## 5. Run LGC-RCT LOSO
 
 # %%
-results = run_loso(X, y, domains, half_window=HALF_WINDOW, cov_estimator=COV_ESTIMATOR)
+results = run_loso(X, y, domains, half_window=HALF_WINDOW, cov_estimator=COV_ESTIMATOR,
+                  lgc_mean=LGC_MEAN)
 
 # %% [markdown]
 # ## 6. Results Summary
 
 # %%
-print(f"\nLGC-RCT K={HALF_WINDOW} | DEAP {LABEL_TARGET} | band={BAND} Hz")
+method_str = f"LGC-RCT K={HALF_WINDOW} ({LGC_MEAN})" if HALF_WINDOW > 0 else "RCT"
+print(f"\n{method_str} | DEAP {LABEL_TARGET} | band={BAND} Hz")
 print(f"Mean ACC    : {results['acc'].mean():.4f} ± {results['acc'].std():.4f}")
 print(f"Mean F1     : {results['f1_macro'].mean():.4f} ± {results['f1_macro'].std():.4f}")
 print(f"Mean Recall : {results['recall_macro'].mean():.4f} ± {results['recall_macro'].std():.4f}")
@@ -239,8 +242,10 @@ results["band_hi"]      = BAND[1]
 
 results_dir = Path(__file__).parent.parent / "results"
 results_dir.mkdir(exist_ok=True)
-results.to_csv(
-    results_dir / f"LGC-RCT_K{HALF_WINDOW}_DEAP_{LABEL_TARGET.upper()}_{BAND[0]}-{BAND[1]}Hz_LOSO.csv",
-    index=False,
+fname = (
+    f"RCT_DEAP_{LABEL_TARGET.upper()}_{BAND[0]}-{BAND[1]}Hz_LOSO.csv"
+    if HALF_WINDOW == 0 else
+    f"LGC-{LGC_MEAN}-K{HALF_WINDOW}_DEAP_{LABEL_TARGET.upper()}_{BAND[0]}-{BAND[1]}Hz_LOSO.csv"
 )
+results.to_csv(results_dir / fname, index=False)
 print("Results saved.")

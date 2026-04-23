@@ -11,7 +11,7 @@ from .pipeline import LGCRCTPipeline, MDMPipeline, infer_blocks_from_labels
 from .lgc import local_riemannian_mean_blockwise
 from .evaluation import run_loso
 
-__version__ = "0.2.0"
+__version__ = "0.3.0"
 __all__ = [
     "LGCRCTPipeline",
     "MDMPipeline",

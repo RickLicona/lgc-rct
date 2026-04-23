@@ -169,6 +169,8 @@ domains : np.ndarray (N,)        subject IDs (str or int)
 | LGC-RCT K=1      | 63.11 ± 4.04     | 60.61 ± 3.42     |     YES     |
 | **LGC-RCT K=10** | **77.73 ± 6.39** | **73.91 ± 6.05** |   **YES**   |
 
+![K ablation — Team Metrics](docs/figures/k_ablation_team_metrics.png)
+
 As reported in NAT26 Berlin proceedings.
 
 ### Affective State Classification — DEAP dataset *(preliminary)*
@@ -176,8 +178,8 @@ As reported in NAT26 Berlin proceedings.
 
 | Task    | Method        |      ACC      | No target labels? | Status      |
 |---------|---------------|:------------:|:-----------:|-------------|
-| Valence | LGC-RCT K=10  | 79.52 ± 5.87 |     YES     | preliminary |
-| Arousal | LGC-RCT K=10  | 75.51 ± 5.68 |     YES     | preliminary |
+| Valence | LGC-RCT K=10  | 79.52 ± 5.97 |     YES     | preliminary |
+| Arousal | LGC-RCT K=10  | 75.51 ± 5.77 |     YES     | preliminary |
 
 > These results are **preliminary** and obtained without any dataset-specific tuning.
 > The method configuration (K=10, cov_estimator='lwf' (Ledoit-Wolf covariance estimator)) is identical
