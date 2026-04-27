@@ -155,6 +155,23 @@ domains : np.ndarray (N,)        subject IDs (str or int)
 > per segment means richer temporal structure and stronger geometric consistency.
 > A 4-second window with 50% overlap (2-second step) at 128 Hz is a validated configuration.
 
+### DEAP Demo
+
+To run the demo on the public DEAP dataset (download instructions in `data/FORMAT.md`):
+
+```bash
+python demos/02_demo_deap.py
+```
+
+Configure the run at the top of the script:
+
+```python
+DEAP_PATH    = Path("/path/to/deap")   # folder with s01.mat ... s32.mat
+LABEL_TARGET = "valence"               # or "arousal"
+HALF_WINDOW  = 10                      # 0 = RCT, 10 = LGC-RCT
+LGC_MEAN     = "riemann"              # or "euclid" (ablation baseline)
+```
+
 ---
 
 ## Validated Results
