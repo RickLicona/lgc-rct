@@ -1,3 +1,19 @@
+> [!WARNING]
+> **Updated implementation and evaluation — use [lgc-toolkit](https://github.com/RickLicona/lgc-toolkit)**
+>
+> This repository preserves the code used in our original publications.
+> For the corrected implementation and updated results, see
+> **[lgc-toolkit](https://github.com/RickLicona/lgc-toolkit)**.
+>
+> The original FgMDM-based evaluations were affected by target-label leakage:
+> FgMDM's internal FGDA/LDA step did not apply the supplied sample weights,
+> so zero-weight target labels still influenced the discriminative fit.
+> The original DEAP pipeline additionally inferred segment boundaries from labels.
+> These issues affect the interpretation of the reported performance as
+> target-label-free evaluation.
+>
+> See the [correction note](https://github.com/RickLicona/lgc-toolkit/blob/main/CORRECTIONS.md)
+> for affected versions, results, and technical details.
 # LGC-RCT — Local Geometric Consistency + Riemannian Centering Transformation
 
 Unsupervised transductive cross-subject EEG transfer learning for passive Brain-Computer Interfaces.
